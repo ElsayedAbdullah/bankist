@@ -188,6 +188,40 @@ btnTransfer.addEventListener('click', function (e) {
   }
 });
 
+btnLoan.addEventListener('click', function (e) {
+  e.preventDefault();
+  const amount = Number(inputLoanAmount.value);
+  if (amount > 0 && currentAccount.movements.some(mov => mov >= amount * 0.1)) {
+    // add loan amount to movements
+    currentAccount.movements.push(amount);
+
+    // update UI
+    updateUi(currentAccount);
+
+    // Clear input fields
+    inputLoanAmount.value = '';
+  }
+});
+
+// implementing closing account
+btnClose.addEventListener('click', function (e) {
+  e.preventDefault();
+  if (
+    currentAccount.username === inputCloseUsername.value &&
+    currentAccount.pin === Number(inputClosePin.value)
+  ) {
+    const index = accounts.findIndex(
+      acc => acc.username === currentAccount.username
+    );
+    // delete account
+    accounts.splice(index, 1);
+    // hide the UI
+    containerApp.style.opacity = 0;
+    // Clear Input Fields
+    inputCloseUsername.value = inputClosePin.value = '';
+  }
+});
+
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 // LECTURES
