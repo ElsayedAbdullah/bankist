@@ -86,20 +86,52 @@ const inputLoanAmount = document.querySelector('.form__input--loan-amount');
 const inputCloseUsername = document.querySelector('.form__input--user');
 const inputClosePin = document.querySelector('.form__input--pin');
 
+let currentAccount, timer;
+
 // format movements date such as added 'today' or 'yesterday'
-const formatMovementsDate = function (date) {
+const formatMovementsDate = function (date, locale) {
   const calcDaysPassed = (date1, date2) =>
     Math.round(Math.abs(date2 - date1) / (1000 * 60 * 60 * 24));
 
   const daysPassed = calcDaysPassed(new Date(), date);
-  console.log(daysPassed);
   if (daysPassed === 0) return 'Today';
   if (daysPassed === 1) return 'Yesterday';
   if (daysPassed <= 7) return `${daysPassed} days ago`;
-  const day = `${date.getDate()}`.padStart(2, 0);
-  const month = `${date.getMonth() + 1}`.padStart(2, 0);
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+  // const day = `${date.getDate()}`.padStart(2, 0);
+  // const month = `${date.getMonth() + 1}`.padStart(2, 0);
+  // const year = date.getFullYear();
+  // return `${day}/${month}/${year}`;
+  return new Intl.DateTimeFormat(locale).format(date);
+};
+
+// funtion to format currency
+const formatCurrency = function (value, locale, currency) {
+  // internationalizing API
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currency,
+  }).format(value);
+};
+
+const startLogoutTimer = function () {
+  let time = 120;
+  const tick = function () {
+    const min = String(Math.trunc(time / 60)).padStart(2, 0);
+    const sec = String(time % 60).padStart(2, 0);
+    labelTimer.textContent = `${min}:${sec}`;
+
+    if (time === 0) {
+      clearInterval(timer);
+      labelWelcome.textContent = 'Log in to get started';
+      containerApp.style.opacity = 0;
+    }
+
+    time--;
+  };
+
+  tick();
+  const timer = setInterval(tick, 1000);
+  return timer;
 };
 
 // function to display movements
@@ -116,7 +148,7 @@ function displayMovements(account, sort = false) {
 
     // Display date
     const date = new Date(account.movementsDates[i]);
-    const displayDate = formatMovementsDate(date);
+    const displayDate = formatMovementsDate(date, account.locale);
 
     const html = `
       <div class="movements__row">
@@ -124,7 +156,11 @@ function displayMovements(account, sort = false) {
       i + 1
     } ${type}</div>
         <div class="movements__date">${displayDate}</div>
-        <div class="movements__value">${mov.toFixed(2)} €</div>
+        <div class="movements__value">${formatCurrency(
+          mov,
+          account.locale,
+          account.currency
+        )}</div>
       </div>
     `;
 
@@ -137,7 +173,11 @@ const calcDisplayBalance = function (account) {
   account.balance = account.movements.reduce((acc, cur) => {
     return acc + cur;
   }, 0);
-  labelBalance.textContent = `${account.balance.toFixed(2)} €`;
+  labelBalance.textContent = formatCurrency(
+    account.balance,
+    account.locale,
+    account.currency
+  );
 };
 
 // function to display summary
@@ -146,13 +186,21 @@ const calcDisplaySummary = function (account) {
     .filter(mov => mov > 0)
     .reduce((acc, mov) => acc + mov, 0);
 
-  labelSumIn.textContent = `${incomes.toFixed(2)}€`;
+  labelSumIn.textContent = `${formatCurrency(
+    incomes,
+    account.locale,
+    account.currency
+  )}`;
 
   const out = account.movements
     .filter(mov => mov < 0)
     .reduce((acc, mov) => acc + mov, 0);
 
-  labelSumOut.textContent = `${Math.abs(out).toFixed(2)}€`;
+  labelSumOut.textContent = `${formatCurrency(
+    Math.abs(out),
+    account.locale,
+    account.currency
+  )}`;
 
   const interest = account.movements
     .filter(mov => mov > 0)
@@ -160,7 +208,11 @@ const calcDisplaySummary = function (account) {
     .filter(int => int >= 1)
     .reduce((acc, mov) => acc + mov, 0);
 
-  labelSumInterest.textContent = `${interest.toFixed(2)}€`;
+  labelSumInterest.textContent = `${formatCurrency(
+    interest,
+    account.locale,
+    account.currency
+  )}`;
 };
 
 // function to create username
@@ -188,8 +240,6 @@ const updateUi = function (account) {
   calcDisplaySummary(account);
 };
 
-let currentAccount;
-
 // Fake login
 //------------
 /*
@@ -197,6 +247,9 @@ currentAccount = account1;
 containerApp.style.opacity = 1;
 updateUi(currentAccount);
 */
+
+// const locale = navigator.language;
+// console.log(locale);
 
 // implementing login
 btnLogin.addEventListener('click', function (e) {
@@ -211,22 +264,41 @@ btnLogin.addEventListener('click', function (e) {
       currentAccount.owner.split(' ')[0]
     }`;
 
-    // Create current date and time
+    // Create current date and time [traditional way]
+    // ----------------------------------------------
+    /*
     const now = new Date();
     const day = `${now.getDate()}`.padStart(2, 0);
     const month = `${now.getMonth() + 1}`.padStart(2, 0);
     const year = now.getFullYear();
     const hour = `${now.getHours()}`.padStart(2, 0);
     const min = `${now.getMinutes()}`.padStart(2, 0);
-
     labelDate.textContent = `${day}/${month}/${year}, ${hour}:${min}`;
-
+    */
+    // Internationlizing API
+    //-----------------------
+    const now = new Date();
+    const options = {
+      hour: 'numeric',
+      minute: 'numeric',
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      // weekday: 'long',
+    };
+    labelDate.textContent = new Intl.DateTimeFormat(
+      currentAccount.locale,
+      options
+    ).format(now);
     // Clear Input Fields
     inputLoginUsername.value = inputLoginPin.value = '';
     inputLoginPin.blur();
 
     containerApp.style.opacity = 1;
 
+    if (timer) clearInterval(timer);
+
+    timer = startLogoutTimer();
     // update UI
     updateUi(currentAccount);
   }
@@ -258,6 +330,10 @@ btnTransfer.addEventListener('click', function (e) {
     currentAccount.movementsDates.push(new Date().toISOString());
     receiveAccount.movementsDates.push(new Date().toISOString());
 
+    // Reset timer
+    clearInterval(timer);
+    timer = startLogoutTimer();
+
     // update UI
     updateUi(currentAccount);
   }
@@ -267,14 +343,20 @@ btnLoan.addEventListener('click', function (e) {
   e.preventDefault();
   const amount = Math.floor(inputLoanAmount.value);
   if (amount > 0 && currentAccount.movements.some(mov => mov >= amount * 0.1)) {
-    // add loan amount to movements
-    currentAccount.movements.push(amount);
+    setTimeout(function () {
+      // add loan amount to movements
+      currentAccount.movements.push(amount);
 
-    // Add load date
-    currentAccount.movementsDates.push(new Date().toISOString());
+      // Add load date
+      currentAccount.movementsDates.push(new Date().toISOString());
 
-    // update UI
-    updateUi(currentAccount);
+      // Reset timer
+      clearInterval(timer);
+      timer = startLogoutTimer();
+
+      // update UI
+      updateUi(currentAccount);
+    }, 2000);
 
     // Clear input fields
     inputLoanAmount.value = '';
@@ -307,165 +389,12 @@ btnSort.addEventListener('click', function () {
   sorted = !sorted;
 });
 
-/////////////////////////////////////////////////
-/////////////////////////////////////////////////
-// LECTURES
-
-const currencies = new Map([
-  ['USD', 'United States dollar'],
-  ['EUR', 'Euro'],
-  ['GBP', 'Pound sterling'],
-]);
-
-const movements = [200, 450, -400, 3000, -650, -130, 70, 1300];
-
-/////////////////////////////////////////////////
-
-/**
- * 
- * Let's go back to Julia and Kate's study about dogs. This time, they want to convert 
-dog ages to human ages and calculate the average age of the dogs in their study.
-Your tasks:
-Create a function 'calcAverageHumanAge', which accepts an arrays of dog's 
-ages ('ages'), and does the following things in order:
-1. Calculate the dog age in human years using the following formula: if the dog is 
-<= 2 years old, humanAge = 2 * dogAge. If the dog is > 2 years old, 
-humanAge = 16 + dogAge * 4
-2. Exclude all dogs that are less than 18 human years old (which is the same as 
-keeping dogs that are at least 18 years old)
-3. Calculate the average human age of all adult dogs (you should already know 
-from other challenges how we calculate averages �)
-4. Run the function for both test datasets
-Test data:
-§ Data 1: [5, 2, 4, 1, 15, 8, 3]
-§ Data 2: [16, 6, 10, 5, 6, 1, 4]
- */
-/*
-const calcAverageHumanAge = ages => {
-  const humanAges = ages.map(age => (age <= 2 ? age * 2 : 16 + age * 4));
-  const adults = humanAges.filter(age => age >= 18);
-  const avg = adults.reduce((acc, cur) => acc + cur, 0);
-
-  return avg / adults.length;
-};
-const calcAverageHumanAge2 = ages =>
-  ages
-    .map(age => (age <= 2 ? age * 2 : 16 + age * 4))
-    .filter(age => age >= 18)
-    .reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
-
-console.log(calcAverageHumanAge2([5, 2, 4, 1, 15, 8, 3]));
-console.log(calcAverageHumanAge2([16, 6, 10, 5, 6, 1, 4]));
-*/
-
-/**
- * ******
- * ******
- * Julia and Kate are still studying dogs, and this time they are studying if dogs are
-eating too much or too little.
-Eating too much means the dog's current food portion is larger than the
-recommended portion, and eating too little is the opposite.
-Eating an okay amount means the dog's current food portion is within a range 10%
-above and 10% below the recommended portion (see hint).
-Your tasks:
-1. Loop over the 'dogs' array containing dog objects, and for each dog, calculate
-the recommended food portion and add it to the object as a new property. Do
-not create a new array, simply loop over the array. Forumla:
-recommendedFood = weight ** 0.75 * 28. (The result is in grams of
-food, and the weight needs to be in kg)
-2. Find Sarah's dog and log to the console whether it's eating too much or too
-little. Hint: Some dogs have multiple owners, so you first need to find Sarah in
-the owners array, and so this one is a bit tricky (on purpose) 🤓
-3. Create an array containing all owners of dogs who eat too much
-('ownersEatTooMuch') and an array with all owners of dogs who eat too little
-('ownersEatTooLittle').
-4. Log a string to the console for each array created in 3., like this: "Matilda and
-Alice and Bob's dogs eat too much!" and "Sarah and John and Michael's dogs eat
-too little!"
-5. Log to the console whether there is any dog eating exactly the amount of food
-that is recommended (just true or false)
-6. Log to the console whether there is any dog eating an okay amount of food
-(just true or false)
-7. Create an array containing the dogs that are eating an okay amount of food (try
-to reuse the condition used in 6.)
-8. Create a shallow copy of the 'dogs' array and sort it by recommended food
-portion in an ascending order (keep in mind that the portions are inside the
-array's objects 😉)
-
-Hints:
-§ Use many different tools to solve these challenges, you can use the summary
-lecture to choose between them 😉
-§ Being within a range 10% above and below the recommended portion means:
-current > (recommended * 0.90) && current < (recommended *
-1.10). Basically, the current portion should be between 90% and 110% of the
-recommended portion.
-Test data:
-*/
-/*
-const dogs = [
-  { weight: 22, curFood: 250, owners: ['Alice', 'Bob'] },
-  { weight: 8, curFood: 200, owners: ['Matilda'] },
-  { weight: 13, curFood: 275, owners: ['Sarah', 'John'] },
-  { weight: 32, curFood: 340, owners: ['Michael'] },
-];
-
-// 1
-
-dogs.forEach(dog => (dog.recomFood = Math.trunc(dog.weight ** 0.75 * 28)));
-
-console.log(dogs);
-
-// 2
-const sarahsDog = dogs.find(dog => {
-  return dog.owners.includes('Sarah');
-});
-console.log(sarahsDog);
-
-console.log(
-  `Sarah's dog is eating too ${
-    sarahsDog.curFood > sarahsDog.recomFood ? 'much' : 'little'
-  }!`
-);
-
-// 3
-const ownersEatTooMuch = dogs
-  .filter(dog => dog.curFood > dog.recomFood)
-  .map(dog => dog.owners)
-  .flat();
-
-console.log(ownersEatTooMuch);
-
-const ownersEatTooLittle = dogs
-  .filter(dog => dog.curFood < dog.recomFood)
-  .map(dog => dog.owners)
-  .flat();
-
-console.log(ownersEatTooLittle);
-
-// 4
-console.log(`${ownersEatTooMuch.join(' and ')}'s dogs eat too much!`);
-console.log(`${ownersEatTooLittle.join(' and ')}'s dogs eat too little!`);
-
-// 5
-console.log(dogs.some(dog => dog.curFood === dog.recomFood));
-
-// 6
-console.log(
-  dogs.some(
-    dog =>
-      dog.curFood > dog.recomFood * 0.9 && dog.curFood < dog.recomFood * 1.1
-  )
-);
-
-// 7
-const okayFood = dogs.filter(
-  dog => dog.curFood > dog.recomFood * 0.9 && dog.curFood < dog.recomFood * 1.1
-);
-
-console.log(okayFood);
-
-// 8
-const shallowDogs = dogs.slice().sort((a, b) => {
-  return a.recomFood - b.recomFood;
-});
-*/
+// setInterval(function () {
+//   const now = new Date();
+//   const time = new Intl.DateTimeFormat('en-US', {
+//     hour: 'numeric',
+//     minute: 'numeric',
+//     second: 'numeric',
+//   }).format(now);
+//   console.log(time);
+// }, 1000);
