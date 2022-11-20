@@ -114,7 +114,7 @@ const formatCurrency = function (value, locale, currency) {
 };
 
 const startLogoutTimer = function () {
-  let time = 120;
+  let time = 300;
   const tick = function () {
     const min = String(Math.trunc(time / 60)).padStart(2, 0);
     const sec = String(time % 60).padStart(2, 0);
@@ -377,6 +377,7 @@ btnClose.addEventListener('click', function (e) {
     accounts.splice(index, 1);
     // hide the UI
     containerApp.style.opacity = 0;
+    labelWelcome.textContent = 'Log in to get started';
     // Clear Input Fields
     inputCloseUsername.value = inputClosePin.value = '';
   }
